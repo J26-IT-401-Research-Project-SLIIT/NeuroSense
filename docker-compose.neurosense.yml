@@ -1,0 +1,28 @@
+﻿services:
+  motor-api:
+    build:
+      context: ./services/motor-api
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+
+  voice-api:
+    build:
+      context: ./services/voice-api
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+
+  handwriting-api:
+    build:
+      context: ./services/handwriting-api
+    ports:
+      - "8003:8000"
+    restart: unless-stopped
+
+  fusion-api:
+    build:
+      context: ./services/fusion-api
+    ports:
+      - "8004:8000"
+    restart: unless-stopped
