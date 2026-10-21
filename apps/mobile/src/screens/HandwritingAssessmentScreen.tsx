@@ -1,7 +1,6 @@
-
-import { useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import * as ImagePicker from 'expo-image-picker';
+import { useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import * as ImagePicker from "expo-image-picker";
 import {
   Alert,
   Image,
@@ -11,17 +10,18 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../App';
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../App";
+import { predictHandwriting } from "../services/handwritingApi";
 
 type Props = NativeStackScreenProps<
   RootStackParamList,
-  'HandwritingAssessment'
+  "HandwritingAssessment"
 >;
 
-type DrawingType = 'spiral' | 'meander';
+type DrawingType = "spiral" | "meander";
 
 type ImageCardProps = {
   title: string;
@@ -31,9 +31,7 @@ type ImageCardProps = {
   onRemove: () => void;
 };
 
-export default function HandwritingAssessmentScreen({
-  navigation,
-}: Props) {
+export default function HandwritingAssessmentScreen({ navigation }: Props) {
   const [spiralImage, setSpiralImage] =
     useState<ImagePicker.ImagePickerAsset | null>(null);
 
@@ -41,6 +39,7 @@ export default function HandwritingAssessmentScreen({
     useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const [isPicking, setIsPicking] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pickImage = async (type: DrawingType) => {
     if (isPicking) return;
@@ -53,14 +52,14 @@ export default function HandwritingAssessmentScreen({
 
       if (!permission.granted) {
         Alert.alert(
-          'Permission required',
-          'Please allow photo library access to select handwriting images.'
+          "Permission required",
+          "Please allow photo library access to select handwriting images.",
         );
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ["images"],
         allowsEditing: false,
         quality: 1,
       });
@@ -71,15 +70,15 @@ export default function HandwritingAssessmentScreen({
 
       const image = result.assets[0];
 
-      if (type === 'spiral') {
+      if (type === "spiral") {
         setSpiralImage(image);
       } else {
         setMeanderImage(image);
       }
     } catch {
       Alert.alert(
-        'Unable to select image',
-        'Please try selecting the image again.'
+        "Unable to select image",
+        "Please try selecting the image again.",
       );
     } finally {
       setIsPicking(false);
@@ -87,26 +86,43 @@ export default function HandwritingAssessmentScreen({
   };
 
   const removeImage = (type: DrawingType) => {
-    if (type === 'spiral') {
+    if (type === "spiral") {
       setSpiralImage(null);
     } else {
       setMeanderImage(null);
     }
   };
 
-  const handleAssess = () => {
+  const handleAssess = async () => {
+    if (isSubmitting) return;
+
     if (!spiralImage || !meanderImage) {
       Alert.alert(
-        'Images required',
-        'Please select both Spiral and Meander images before continuing.'
+        "Images required",
+        "Please select both Spiral and Meander images before continuing.",
       );
       return;
     }
 
-    navigation.navigate('AssessmentResult', {
-      spiralUri: spiralImage.uri,
-      meanderUri: meanderImage.uri,
-    });
+    try {
+      setIsSubmitting(true);
+      const result = await predictHandwriting(spiralImage, meanderImage);
+
+      navigation.navigate("AssessmentResult", {
+        spiralUri: spiralImage.uri,
+        meanderUri: meanderImage.uri,
+        result,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Assessment failed",
+        error instanceof Error
+          ? error.message
+          : "Unable to assess the selected images. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const bothImagesSelected = Boolean(spiralImage && meanderImage);
@@ -129,15 +145,15 @@ export default function HandwritingAssessmentScreen({
         <Text style={styles.title}>Handwriting Assessment</Text>
 
         <Text style={styles.subtitle}>
-          Upload the patient's spiral and meander drawing samples
-          to prepare a handwriting assessment.
+          Upload the patient's spiral and meander drawing samples to prepare a
+          handwriting assessment.
         </Text>
 
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Before you continue</Text>
           <Text style={styles.infoText}>
-            Select the correct drawing type for each image.
-            Make sure both images are clear and readable.
+            Select the correct drawing type for each image. Make sure both
+            images are clear and readable.
           </Text>
         </View>
 
@@ -145,50 +161,36 @@ export default function HandwritingAssessmentScreen({
           title="Spiral Drawing"
           description="Upload the patient's spiral drawing."
           image={spiralImage}
-          onSelect={() => pickImage('spiral')}
-          onRemove={() => removeImage('spiral')}
+          onSelect={() => pickImage("spiral")}
+          onRemove={() => removeImage("spiral")}
         />
 
         <ImageCard
           title="Meander Drawing"
           description="Upload the patient's meander drawing."
           image={meanderImage}
-          onSelect={() => pickImage('meander')}
-          onRemove={() => removeImage('meander')}
+          onSelect={() => pickImage("meander")}
+          onRemove={() => removeImage("meander")}
         />
 
         <View style={styles.progressCard}>
-          <Text style={styles.progressTitle}>
-            Upload progress
-          </Text>
+          <Text style={styles.progressTitle}>Upload progress</Text>
 
           <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>
-              Spiral image
-            </Text>
+            <Text style={styles.progressLabel}>Spiral image</Text>
             <Text
-              style={
-                spiralImage
-                  ? styles.completedText
-                  : styles.pendingText
-              }
+              style={spiralImage ? styles.completedText : styles.pendingText}
             >
-              {spiralImage ? 'Selected' : 'Pending'}
+              {spiralImage ? "Selected" : "Pending"}
             </Text>
           </View>
 
           <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>
-              Meander image
-            </Text>
+            <Text style={styles.progressLabel}>Meander image</Text>
             <Text
-              style={
-                meanderImage
-                  ? styles.completedText
-                  : styles.pendingText
-              }
+              style={meanderImage ? styles.completedText : styles.pendingText}
             >
-              {meanderImage ? 'Selected' : 'Pending'}
+              {meanderImage ? "Selected" : "Pending"}
             </Text>
           </View>
 
@@ -197,9 +199,11 @@ export default function HandwritingAssessmentScreen({
               style={[
                 styles.progressFill,
                 {
-                  width: bothImagesSelected ? '100%' : (
-                    spiralImage || meanderImage ? '50%' : '0%'
-                  ),
+                  width: bothImagesSelected
+                    ? "100%"
+                    : spiralImage || meanderImage
+                      ? "50%"
+                      : "0%",
                 },
               ]}
             />
@@ -212,10 +216,11 @@ export default function HandwritingAssessmentScreen({
             !bothImagesSelected && styles.assessButtonDisabled,
           ]}
           onPress={handleAssess}
+          disabled={isSubmitting}
           activeOpacity={0.8}
         >
           <Text style={styles.assessButtonText}>
-            Continue to Results →
+            {isSubmitting ? "Analyzing images..." : "Continue to Results →"}
           </Text>
         </TouchableOpacity>
 
@@ -239,7 +244,7 @@ function ImageCard({
       <View style={styles.cardHeader}>
         <View style={styles.cardIcon}>
           <Text style={styles.cardIconText}>
-            {title.startsWith('Spiral') ? 'S' : 'M'}
+            {title.startsWith("Spiral") ? "S" : "M"}
           </Text>
         </View>
 
@@ -259,9 +264,7 @@ function ImageCard({
       ) : (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderSymbol}>＋</Text>
-          <Text style={styles.placeholderText}>
-            No image selected
-          </Text>
+          <Text style={styles.placeholderText}>No image selected</Text>
           <Text style={styles.placeholderHint}>
             Choose an image from your device
           </Text>
@@ -274,7 +277,7 @@ function ImageCard({
         activeOpacity={0.75}
       >
         <Text style={styles.uploadButtonText}>
-          {image ? 'Change Image' : 'Select Image'}
+          {image ? "Change Image" : "Select Image"}
         </Text>
       </TouchableOpacity>
 
@@ -282,7 +285,7 @@ function ImageCard({
         <View style={styles.selectedRow}>
           <View style={styles.selectedIndicator} />
           <Text style={styles.fileName} numberOfLines={2}>
-            {image.fileName || 'Selected image'}
+            {image.fileName || "Selected image"}
           </Text>
 
           <TouchableOpacity
@@ -301,7 +304,7 @@ function ImageCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FB',
+    backgroundColor: "#F5F7FB",
   },
   content: {
     padding: 22,
@@ -309,95 +312,95 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 24,
   },
   brand: {
-    color: '#3974D8',
+    color: "#3974D8",
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   stepBadge: {
-    backgroundColor: '#E7EEFF',
+    backgroundColor: "#E7EEFF",
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   stepText: {
-    color: '#315FA8',
+    color: "#315FA8",
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.7,
   },
   title: {
-    color: '#17243B',
+    color: "#17243B",
     fontSize: 27,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 10,
   },
   subtitle: {
-    color: '#65738A',
+    color: "#65738A",
     fontSize: 15,
     lineHeight: 23,
     marginBottom: 20,
   },
   infoCard: {
-    backgroundColor: '#EAF1FF',
+    backgroundColor: "#EAF1FF",
     borderRadius: 14,
     padding: 16,
     marginBottom: 22,
   },
   infoTitle: {
-    color: '#245FC4',
+    color: "#245FC4",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 6,
   },
   infoText: {
-    color: '#3B5278',
+    color: "#3B5278",
     fontSize: 13,
     lineHeight: 20,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 18,
     padding: 18,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#E5EAF2',
+    borderColor: "#E5EAF2",
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   cardIcon: {
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#EAF1FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#EAF1FF",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   cardIconText: {
-    color: '#3974D8',
+    color: "#3974D8",
     fontSize: 19,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   cardHeading: {
     flex: 1,
   },
   cardTitle: {
-    color: '#17243B',
+    color: "#17243B",
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 5,
   },
   description: {
-    color: '#65738A',
+    color: "#65738A",
     fontSize: 13,
     lineHeight: 19,
   },
@@ -405,49 +408,49 @@ const styles = StyleSheet.create({
     height: 165,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DCE3EF',
-    borderStyle: 'dashed',
-    backgroundColor: '#F8FAFD',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#DCE3EF",
+    borderStyle: "dashed",
+    backgroundColor: "#F8FAFD",
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeholderSymbol: {
-    color: '#3974D8',
+    color: "#3974D8",
     fontSize: 32,
     marginBottom: 6,
   },
   placeholderText: {
-    color: '#65738A',
+    color: "#65738A",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   placeholderHint: {
-    color: '#98A3B3',
+    color: "#98A3B3",
     fontSize: 12,
     marginTop: 6,
   },
   preview: {
-    width: '100%',
+    width: "100%",
     height: 210,
     borderRadius: 12,
-    backgroundColor: '#F8FAFD',
+    backgroundColor: "#F8FAFD",
   },
   uploadButton: {
     borderWidth: 1,
-    borderColor: '#3974D8',
+    borderColor: "#3974D8",
     borderRadius: 12,
     paddingVertical: 13,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 14,
   },
   uploadButtonText: {
-    color: '#3974D8',
+    color: "#3974D8",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   selectedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 12,
     gap: 8,
   },
@@ -455,82 +458,82 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#239B69',
+    backgroundColor: "#239B69",
   },
   fileName: {
     flex: 1,
-    color: '#65738A',
+    color: "#65738A",
     fontSize: 12,
   },
   removeText: {
-    color: '#C24141',
+    color: "#C24141",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   progressCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 18,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E5EAF2',
+    borderColor: "#E5EAF2",
   },
   progressTitle: {
-    color: '#17243B',
+    color: "#17243B",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 14,
   },
   progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   progressLabel: {
-    color: '#65738A',
+    color: "#65738A",
     fontSize: 13,
   },
   completedText: {
-    color: '#168456',
+    color: "#168456",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   pendingText: {
-    color: '#98A3B3',
+    color: "#98A3B3",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   progressTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#E8EDF5',
-    overflow: 'hidden',
+    backgroundColor: "#E8EDF5",
+    overflow: "hidden",
     marginTop: 4,
   },
   progressFill: {
-    height: '100%',
-    backgroundColor: '#3974D8',
+    height: "100%",
+    backgroundColor: "#3974D8",
     borderRadius: 3,
   },
   assessButton: {
-    backgroundColor: '#3974D8',
+    backgroundColor: "#3974D8",
     borderRadius: 14,
     paddingVertical: 17,
-    alignItems: 'center',
+    alignItems: "center",
   },
   assessButtonDisabled: {
-    backgroundColor: '#7899D5',
+    backgroundColor: "#7899D5",
   },
   assessButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   disclaimer: {
-    color: '#8792A3',
+    color: "#8792A3",
     fontSize: 12,
     lineHeight: 18,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 18,
   },
 });
