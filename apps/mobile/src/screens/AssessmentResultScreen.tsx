@@ -52,9 +52,9 @@ export default function AssessmentResultScreen({ route, navigation }: Props) {
               </Text>
             </View>
 
-            <View style={styles.predictionIcon}>
+            {/* <View style={styles.predictionIcon}>
               <Text style={styles.predictionIconText}>--</Text>
-            </View>
+            </View> */}
           </View>
 
           <Text style={styles.disclaimerSmall}>
